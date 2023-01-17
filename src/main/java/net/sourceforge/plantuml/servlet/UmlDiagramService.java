@@ -102,10 +102,13 @@ public abstract class UmlDiagramService extends HttpServlet {
         String uml,
         int idx
     ) throws IOException {
+        // Set config field
+        final String configName = request.getParameter("config");
+
         // generate the response
         DiagramResponse dr = new DiagramResponse(response, getOutputFormat(), request);
         try {
-            dr.sendDiagram(uml, idx);
+            dr.sendDiagram(uml, idx, configName);
         } catch (IIOException e) {
             // Browser has closed the connection, so the HTTP OutputStream is closed
             // Silently catch the exception to avoid annoying log

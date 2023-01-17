@@ -23,11 +23,11 @@
  */
 package net.sourceforge.plantuml.servlet;
 
-import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -51,6 +51,7 @@ import net.sourceforge.plantuml.core.DiagramDescription;
 import net.sourceforge.plantuml.core.ImageData;
 import net.sourceforge.plantuml.error.PSystemError;
 import net.sourceforge.plantuml.preproc.Defines;
+import net.sourceforge.plantuml.servlet.utility.PathCheck;
 import net.sourceforge.plantuml.version.Version;
 
 /**
@@ -68,7 +69,7 @@ public class DiagramResponse {
      */
     private static final String POWERED_BY = "PlantUML Version " + Version.versionString();
 
-    private static final List<String> CONFIG = new ArrayList<>();
+    private static final HashMap<String, List<String>> CONFIGS = new HashMap<>();
 
     static {
         OptionFlags.ALLOW_INCLUDE = false;
@@ -118,28 +119,35 @@ public class DiagramResponse {
      *
      * @throws IOException if an input or output exception occurred
      */
-    public void sendDiagram(String uml, int idx) throws IOException {
+    public void sendDiagram(String uml, int idx, String configName) throws IOException {
         response.addHeader("Access-Control-Allow-Origin", "*");
         response.setContentType(getContentType());
 
-        if (CONFIG.size() == 0 && System.getenv("PLANTUML_CONFIG_FILE") != null) {
-            // Read config
-            final BufferedReader br = new BufferedReader(new FileReader(System.getenv("PLANTUML_CONFIG_FILE")));
-            if (br == null) {
-                return;
-            }
-            try {
-                String s = null;
-                while ((s = br.readLine()) != null) {
-                    CONFIG.add(s);
+        // Get config if set
+        List<String> configContent = CONFIGS.getOrDefault(configName, new ArrayList<>());
+        if (configContent.isEmpty()) {
+            Path configPath = null;
+            if (configName == null) {
+                // If unset, try to use environment-var
+                String path = System.getenv("PLANTUML_CONFIG_FILE");
+                if (path != null) {
+                    configPath = Path.of(path);
                 }
-            } finally {
-                br.close();
+            } else {
+                configPath = Path.of("config/", configName);
+                if (!PathCheck.isDirect(configPath.toString())) {
+                    throw new IOException("File not found");
+                }
+            }
+
+            if (configPath != null) {
+                configContent = Files.readAllLines(configPath);
+                CONFIGS.put(configName, configContent);
             }
         }
 
-        SourceStringReader reader = new SourceStringReader(Defines.createEmpty(), uml, CONFIG);
-        if (CONFIG.size() > 0 && reader.getBlocks().get(0).getDiagram().getWarningOrError() != null) {
+        SourceStringReader reader = new SourceStringReader(Defines.createEmpty(), uml, configContent);
+        if (!configContent.isEmpty() && reader.getBlocks().get(0).getDiagram().getWarningOrError() != null) {
             reader = new SourceStringReader(uml);
         }
 

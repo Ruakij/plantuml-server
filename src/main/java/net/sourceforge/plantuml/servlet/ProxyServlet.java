@@ -104,6 +104,9 @@ public class ProxyServlet extends HttpServlet {
             return;
         }
 
+        // Set config field
+        String configName = request.getParameter("configName");
+
         // generate the response
         String diagmarkup = getSource(srcUrl);
         SourceStringReader reader = new SourceStringReader(diagmarkup);
@@ -122,7 +125,7 @@ public class ProxyServlet extends HttpServlet {
             if ("map".equals(fmt)) {
                 dr.sendMap(uml, 0);
             } else {
-                dr.sendDiagram(uml, 0);
+                dr.sendDiagram(uml, 0, configName);
             }
         } catch (IIOException e) {
             // Browser has closed the connection, so the HTTP OutputStream is closed
